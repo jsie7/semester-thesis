@@ -1,0 +1,81 @@
+base_path: '/mnt/c/Users/jerom/OneDrive/ETH/Semester Project/playground_data'
+files:
+  - '2018_01_18_12_47_42_257/2018_01_18_12_47_42_257.record'
+  - '2018_01_18_12_51_23_562/2018_01_18_12_51_23_562.record'
+  - '2018_01_18_12_42_56_973/2018_01_18_12_42_56_973.record'
+
+module: vmcode.recproc.preprocessing
+class: RecordPreprocessor
+init_params:
+  timestamp:
+pipeline:
+  - method: shorten_column_names
+    params:
+  - method: rename_columns
+    params:
+      column_dict: {'PedalLeft': 'PedalLeft_Cut', 'PedalRight': 'PedalRight_Coag'}
+      inplace: True
+      
+# Rename values of LoopMov column to be more informative
+  - method: rename_values
+    params:
+      column_dict: {'PedalLeft_Cut': 'PedalLeft_Cut', 'PedalRight_Coag': 'PedalRight_Coag'}
+      value_dict: {True: 'on', False: 'off'}
+
+# Split the 'ScopePositionConstrained' column into X, Y, Z components
+  - method: split_xyz
+    params:
+      column_name: 'ScopePositionConstrained'
+      new_column_name_prefix: 'ScopePos'
+      drop: True
+
+# Drop rows correponding to times without video recording:
+  - method: drop_rows
+    params:
+      mask_as_string: 'record["ScopePosY"] < 20'
+      reset_index: True
+      drop_index: True
+
+# Append 'TimeElapsed' column
+  - method: append_time_elapsed_column
+    params:
+
+# Convert 'TimeElapsed' from seconds to milliseconds
+  # - method: apply_function
+  # - params:
+  #   - function: 'lambda t: int(t * 1000)'
+
+# Process the Valve columns and give more informative names:
+  - method: apply_function
+    params:
+      column_dict: {'Valve1': 'Valve1_In', 'Valve2': 'Valve2_Out'}
+      function: '[fun] lambda x: int(10 * ((95 - x * 9 / 10) // 10))'
+
+# Process the 'HandlePosition' column:
+  - method: apply_function
+    params:
+      column_dict: {'HandlePosition': 'LoopExt'}
+      function: '[fun] lambda x: int(10 * (x // 10))'
+  - method: smoothen
+    params:
+      column_dict: {'HandlePosition': 'HandlePositionSmooth'}
+      window_length: 31
+  - method: differentiate_wrt_time
+    params:
+      column_dict: {'HandlePositionSmooth': 'HandleMov'}
+  - method: apply_function
+    params:
+      column_dict: {'HandleMov': 'HandleMov'}
+      function: '[fun] lambda x: -1 if x < 0 else (1 if x > 0 else 0)'  # the sign function
+  - method: rename_values
+    params:
+      column_dict: {'HandleMov': 'HandleMov'}
+      value_dict: {-1: 'bwds', 0: 'still', 1: 'fwds'}
+
+# Append 'NearMyoma' column
+  - method: append_near_myoma_column
+    params:
+
+# Write to output file; timestamp is provided by run.py!
+  - method: write_to_record
+    params:

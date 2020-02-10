@@ -1,0 +1,183 @@
+## Example config file
+## For more information see documentation of run.py
+
+base_path: '/mnt/c/Users/jerom/OneDrive/ETH/Semester Project/playground_data'
+files:
+  - '2018_01_18_13_05_08_089/2018_01_18_13_05_08_089.avi'
+  - '2018_01_18_13_18_40_675/2018_01_18_13_18_40_675.avi'
+
+## Example 1:
+## Running the pipeline with module 'run' and class 'DataPipeline'
+## will run the pipeline as a special data pipeline. Between all
+## steps in 'pipeline' data will be passed.
+## NOTE: Data is passed to the next step as it was yielded by the
+##       previous step!
+##
+# module: run
+# class: DataPipeline
+# pipeline:
+#   - module: vmcode.vidproc.videoprocessing
+#     pipeline:
+#       - method: load_from_cache
+#         params:
+#           cache_location: cache
+#           cache_instance: all_1D_hist
+#   - module: test_lib
+#     pipeline:
+#       - method: dummy_data_handler
+#         params:
+
+## Example 2:
+## There is an additional function called 'aggregate_data' which
+## aggregates the data and passes a dictionary with the file name
+## as key and data as value to the next step.
+##
+# module: run
+# class: DataPipeline
+# pipeline:
+#   - module: vmcode.vidproc.videoprocessing
+#     pipeline:
+#       - method: load_from_cache
+#         params:
+#           cache_location: cache
+#           cache_instance: all_1D_hist
+#   - method: aggregate_data
+#   - module: vmcode.test_lib
+#     pipeline:
+#       - method: dummy_data_handler
+#         params:
+
+## Example 3:
+## The data pipeline can be stacked too. The whole run process
+## works recursively.
+## If parameter 'once' of 'aggregate_data' is set to True, the
+## subsequent step won't be called for each file in files but
+## only once. This is only true for the subsequent step, though.
+##
+# module: run
+# class: DataPipeline
+# pipeline:
+#   - module: run
+#     class: DataPipeline
+#     pipeline:
+#       - module: vmcode.vidproc.videoprocessing
+#         pipeline:
+#           - method: load_from_cache
+#             params:
+#               cache_location: cache
+#               cache_instance:
+#       - module: test_lib
+#         pipeline:
+#           - method: dummy_data_handler
+#             params:
+#   - method: aggregate_data
+#     params:
+#       once: True
+#   - module: test_lib
+#     pipeline:
+#       - method: dummy_data_handler
+#         params:
+
+## Example 4:
+## The data pipeline will produce a pickle file containing
+## the data returned by the last step in the pipeline. The
+## data format is the format, which was returned by the last
+## step.
+## For the sake of producing a pickle file, the data pipeline
+## can also be called on a single step.
+##
+# module: run
+# class: DataPipeline
+# pipeline:
+#   - module: vmcode.vidproc.videoprocessing
+#     pipeline:
+#       - method: load_from_cache
+#         params:
+#           cache_location: cache
+
+## Example 5:
+## Running the pipeline with module 'run' and without the
+## 'DataPipeline' class, will run the pipeline steps without
+## passing any data. In the example below, nothing will be
+## passed between steps and the steps are executed independently.
+##
+# module: run
+# pipeline:
+#   - module: vmcode.vidproc.videoprocessing
+#     class: VideoProcessor
+#     init_params:
+#       caching: exact
+#       cache_location: cache
+#     pipeline:
+#       - method: process
+#         params:
+#           process_options: hist
+#           label_tier: Turbidity
+#   - module: vmcode.vidproc.videoprocessing
+#     pipeline:
+#       - method: load_from_cache
+#         params:
+#           cache_location: cache
+
+## Example 6:
+## The pipeline can run any module or class. If the top level
+## step is a class, the methods in 'pipeline' have to be class
+## members. If the top level step is a module, they have to be
+## module members.
+## The keyword 'init_params' is exclusively used for classes
+## and those parameters will be passed to the class constructor
+## If the class or module implements some sort of data handling
+## between steps - e.g. storing data as a class member - this will
+## behave similarly to the data pipeline.
+##
+# module: vmcode.vidproc.videoprocessing
+# class: VideoProcessor
+# init_params:
+#   caching: exact
+#   cache_location: cache
+# pipeline:
+#   - method: process
+#     params:
+#       process_options: hist
+#       label_tier: Turbidity
+
+## Example 7 (2):
+## The config parser contains a wildcard detector and can
+## replace certain wildcards. One of those is '[fun]', if
+## it is found by the parser, the whole string following the
+## the '[fun]' keyword, will be replaced by a function. If the
+## string is an external function, the module given by the
+## keyword 'external_functions' is loaded.
+## The other wildcards are: 'timestamp', 'files' and 'base_path'.
+## 'timestamp' is replaced by the UTC timestamp generated when
+## run.py is called. 'files' is replaced by the file list, given
+## at the top of the file. 'base_path' is replaced by the path,
+## given at the top of the file.
+##
+# module: vmcode.vidproc.videoprocessing
+# external_functions: vmcode.test_lib
+# pipeline:
+#   - method:
+#     params:
+#       bsp_param: '[fun] lambda x: int(10 * ((95 - x * 9 / 10) // 10))'
+#       bsp_param_list:
+#         - '[fun]dummy_fun_1'
+#         - some_str
+#         - 100
+#   - method: 
+#     params:
+#       cache_location: cache
+#       cache_instance: '[fun] dummy_fun_2'
+
+# module: run
+# pipeline:
+#   - method:
+#     params:
+#       timestamp: timestamp
+#       list:
+#         - timestamp
+#         - files
+#   - method: 
+#     params:
+#       fnames: files
+#       path: base_path
